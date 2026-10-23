@@ -29,10 +29,8 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 		Msg("OpenAI chat completions request received")
 
 	// Read body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Get().Error().Err(err).Msg("Error reading request body")
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
+	body, ok := readLimitedRequestBody(w, r, maxGenerationRequestBody)
+	if !ok {
 		return
 	}
 	defer r.Body.Close()

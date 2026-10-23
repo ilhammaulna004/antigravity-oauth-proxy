@@ -13,6 +13,8 @@ import (
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
+const maxGenerationRequestBody = 32 << 20 // Allow image payloads while bounding memory use.
+
 func (s *Server) streamGenerateContentHandler(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
@@ -72,10 +74,8 @@ func (s *Server) handleGenerateContent(w http.ResponseWriter, r *http.Request, m
 		Str("model", model).
 		Msg("Handling generateContent")
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Get().Error().Err(err).Msg("Failed to read request body")
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
+	body, ok := readLimitedRequestBody(w, r, maxGenerationRequestBody)
+	if !ok {
 		return
 	}
 	defer r.Body.Close()
@@ -171,10 +171,8 @@ func (s *Server) handleStreamGenerateContent(w http.ResponseWriter, r *http.Requ
 		Msg("Handling streamGenerateContent")
 
 	// Read and parse request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Get().Error().Err(err).Msg("Failed to read request body")
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
+	body, ok := readLimitedRequestBody(w, r, maxGenerationRequestBody)
+	if !ok {
 		return
 	}
 	defer r.Body.Close()
