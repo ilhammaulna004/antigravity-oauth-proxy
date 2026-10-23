@@ -414,7 +414,11 @@ func (c *Client) streamGenerateContentInternal(ctx context.Context, req *Generat
 			scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 
 			for scanner.Scan() {
-				out <- scanner.Text()
+				select {
+				case out <- scanner.Text():
+				case <-ctx.Done():
+					return
+				}
 			}
 			if err := scanner.Err(); err != nil {
 				logger.Get().Warn().Err(err).Msg("Upstream SSE scanner error")
