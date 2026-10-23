@@ -57,9 +57,29 @@ ADMIN_API_KEY="replace-with-a-long-random-value" ./antigravity-oauth-proxy
 
 ### Using Docker Compose
 
-```bash
-docker compose up -d
+Install Docker and Docker Compose on the host PC. Create a `.env` file in the repository directory with your own long, random key (do not use the Compose default):
+
+```dotenv
+ADMIN_API_KEY=replace-with-a-long-random-value
 ```
+
+```bash
+docker compose up -d --build
+```
+
+Open `http://localhost:9878/dashboard/` on the host PC. Sign in with `admin` / `admin` and change the password on the **Security** page before making the proxy public. Account data and usage history persist in `~/.config/antigravity-oauth-proxy` on the host. To check logs, run `docker compose logs -f antigravity-proxy`.
+
+### Access from outside via Cloudflare Tunnel (home PC)
+
+This runs the app on your PC and exposes it through Cloudflare Tunnel; it does **not** deploy the app to Cloudflare Workers. You need a domain managed by Cloudflare and `cloudflared` running on the same host as Docker. No router port forwarding is needed.
+
+1. Start the proxy with Docker Compose as above. Before publishing it, set a unique `ADMIN_API_KEY` in `.env` and change the dashboard's default `admin` password. For host-only access to the proxy port, change the `9878` port mapping in `docker-compose.yml` from `"9878:9878"` to `"127.0.0.1:9878:9878"`, then run `docker compose up -d --build` again.
+2. In Cloudflare Zero Trust, go to **Networks → Tunnels**, create a Cloudflare Tunnel, and follow the displayed instructions to install and run `cloudflared` on the host PC. Keep the connector running for as long as you want remote access.
+3. Add a **Public Hostname** such as `proxy.example.com` to the tunnel. Set service type to **HTTP** and URL to `localhost:9878` (or `http://localhost:9878`, depending on the form). Cloudflare provides HTTPS for the public hostname. Test `https://proxy.example.com/dashboard/` from outside your home network.
+
+Use `https://proxy.example.com/v1beta` for Gemini clients or `https://proxy.example.com/v1` for OpenAI-compatible clients; send your `ADMIN_API_KEY` as a bearer token or `X-Goog-Api-Key`. The `/v1/models` endpoint is public, and the dashboard has its own password: **a tunnel does not add authentication**. Consider Cloudflare Access for the dashboard; if you protect the same hostname with Access, API clients must also satisfy its Access policy. Never publish the default dashboard password or Compose API key.
+
+Google OAuth redirects to `http://localhost:51121/oauth-callback`, not your public hostname. With Docker or a remote browser, the automatic callback may not reach the app. Copy the final localhost callback URL (or authorization code) from your browser address bar and paste it into **Connecting remotely or callback blocked?** in the dashboard's **Connect Account** dialog. Port `51121` does not need to be routed through the tunnel.
 
 ### Using Go install
 
